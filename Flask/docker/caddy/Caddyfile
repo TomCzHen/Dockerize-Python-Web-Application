@@ -1,0 +1,8 @@
+http://127.0.0.1 {
+    log stdout
+    root /caddy/www/flask
+    proxy / flask:3031 {
+        except /static /robots.txt
+        transparent
+    }
+}

@@ -1,0 +1,79 @@
+version: "3.7"
+services:
+  flask:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    restart: on-failure
+    networks:
+      - caddy-network
+      - flask-network
+    depends_on:
+      - caddy
+      - postgres
+    volumes:
+      - type: volume
+        source: flask-static-data
+        target: /app/static
+    env_file:
+      - .env
+    logging: &logging
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "10"
+  postgres:
+    image: postgres:11.3-alpine
+    environment:
+      POSTGRES_USER: ${DATABASE_USER}
+      POSTGRES_PASSWORD: ${DATABASE_PASSWORD}
+      POSTGRES_DB: ${DATABASE_NAME}
+    networks:
+      flask-network:
+        aliases:
+          - ${DATABASE_HOST}
+    volumes:
+      - type: volume
+        source: postgres-data
+        target: /var/lib/postgresql/data
+    logging:
+      <<: *logging
+  caddy:
+    build:
+      context: docker/caddy
+    restart: unless-stopped
+    networks:
+      - caddy-network
+    volumes:
+      - type: volume
+        source: flask-static-data
+        target: /caddy/www/flask/static
+        read_only: true
+      - type: volume
+        source: caddy-data
+        target: /caddy
+      - type: bind
+        source: ./docker/caddy/Caddyfile
+        target: /caddy/etc/Caddyfile
+    ports:
+      - target: 80
+        published: 80
+        protocol: tcp
+        mode: host
+      - target: 443
+        published: 443
+        protocol: tcp
+        mode: host
+    logging:
+      <<: *logging
+
+networks:
+  caddy-network:
+    name: caddy-network
+  flask-network:
+    name: flask-network
+
+volumes:
+  flask-static-data:
+  postgres-data:
+  caddy-data:
